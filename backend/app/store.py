@@ -10,21 +10,37 @@ from app.seed import SEED_ROWS
 
 
 class Store:
+    # 来源链、版本快照和交付清单是内部追溯表，不属于用户可维护的业务模块。
+    INTERNAL_MODULES = {
+        "row_lineage",
+        "source_config_versions",
+        "parser_rule_versions",
+        "delivery_manifests",
+    }
+
     def __init__(self) -> None:
         self._tables: dict[str, list[dict[str, Any]]] = {
             name: [dict(row) for row in rows] for name, rows in SEED_ROWS.items()
         }
 
     def module_names(self) -> list[str]:
-        return sorted(self._tables)
+        return sorted(name for name in self._tables
+                      if name not in self.INTERNAL_MODULES)
 
     def rows(self, module: str) -> list[dict[str, Any]]:
         return self._tables.setdefault(module, [])
 
     def find(self, module: str, entry_id: int) -> dict[str, Any] | None:
+        try:
+            target = int(entry_id)
+        except (TypeError, ValueError):
+            return None
         for row in self.rows(module):
-            if int(row.get("id", 0)) == entry_id:
-                return row
+            try:
+                if int(row.get("id", 0)) == target:
+                    return row
+            except (TypeError, ValueError):
+                continue
         return None
 
     def overview(self) -> dict[str, object]:
